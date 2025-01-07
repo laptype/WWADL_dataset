@@ -1,3 +1,4 @@
+import numpy as np
 from dataset_management.base import WWADLBase
 from utils.h5 import load_h5
 
@@ -12,7 +13,7 @@ class WWADL_imu(WWADLBase):
     def load_data(self, file_path):
         data = load_h5(file_path)
 
-        self.data = data['data']
+        self.data = np.transpose(data['data'], (1, 0, 2))
         self.label = data['label']
         self.duration = data['duration']
 

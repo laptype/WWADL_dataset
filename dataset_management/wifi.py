@@ -15,11 +15,8 @@ class WWADL_wifi(WWADLBase):
         self.label = data['label']
 
 
-    def segment(self, time_len = 30, sample_rate = 200):
 
-        self.data   # (11400, 3, 3, 30)
-        window_len = time_len
-        self.label # [[id, action_type, start_id, end_id], ....]
+
 
 
 
