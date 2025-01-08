@@ -127,6 +127,125 @@ def process_and_save_dataset(root_path, time_len, time_step, modality_list=None,
     print("Processing and saving completed!")
 
 
+def process_and_save_dataset_v2(root_path, time_len, time_step, modality_list=None, output_dir='./output', name='', batch_size=100, target_len = 2048):
+    """
+    处理数据集并分批保存 data 和 label 到 HDF5 和 JSON 文件中。
+    output_dir/name/
+    ├── train_data.h5
+    ├── train_label.json
+    ├── test_data.h5
+    ├── test_label.json    output_dir/name/
+    ├── train_data.h5
+    ├── train_label.json
+    ├── test_data.h5
+    ├── test_label.json
+    ├── train.csv
+    ├── test.csv
+    └── info.json
+    ├── train.csv
+    ├── test.csv
+    └── info.json
+    Args:
+        root_path (str): 数据集根目录。
+        time_len (int): 时间切片长度。
+        time_step (int): 时间切片步长。
+        modality_list (list): 数据模态列表。
+        output_dir (str): 输出文件夹路径。
+        name (str): 文件名。
+        batch_size (int): 每批处理的文件数量。
+    """
+    # 创建输出目录
+    output_dir = os.path.join(output_dir, name)
+    os.makedirs(output_dir, exist_ok=True)
+
+    # 加载数据集分割
+    dataset = WWADLDatasetSplit(root_path=root_path)
+    file_records = dataset.generate_file_list()
+    train_list, test_list = dataset.split_data_by_volunteer_and_scene(file_records)
+
+    # 导出文件列表为 CSV
+    train_csv_path = os.path.join(output_dir, 'train.csv')
+    test_csv_path = os.path.join(output_dir, 'test.csv')
+    dataset.export_to_csv(train_list, train_csv_path)
+    dataset.export_to_csv(test_list, test_csv_path)
+
+    # 获取训练和测试的文件名列表
+    train_file_name_list, test_file_name_list = dataset.get_file_name_lists(train_list, test_list)
+
+    # 处理并保存训练数据
+    print("Processing training data...")
+    train_h5_path = os.path.join(output_dir, 'train_data.h5')
+    train_json_path = os.path.join(output_dir, 'train_label.json')
+    train_dataset = WWADLDataset(root_path, train_file_name_list, modality_list)
+    train_data, train_labels = train_dataset.segment_data_h5(time_len, time_step, target_len = target_len, output_file=train_h5_path)
+    save_data_in_batches_v2(None, train_labels, batch_size, train_h5_path, train_json_path)
+
+    # 处理并保存测试数据
+    print("Processing test data...")
+    test_h5_path = os.path.join(output_dir, 'test_data.h5')
+    test_json_path = os.path.join(output_dir, 'test_label.json')
+    test_id_json_path = os.path.join(output_dir, 'test_segment.json')
+    test_dataset = WWADLDataset(root_path, test_file_name_list, modality_list)
+    test_data, test_labels = test_dataset.segment_data_h5(time_len, time_step, target_len = target_len, output_file=test_h5_path, is_test=True)
+    save_data_in_batches_v2(None, test_labels[0], batch_size, test_h5_path, test_json_path, is_test=True)
+
+    with open(test_id_json_path, 'w') as json_file:
+        json.dump(convert_to_serializable(test_labels[1]), json_file, indent=4)
+        print(test_id_json_path)
+
+    test_labels = test_labels[0]
+
+    test_dataset.generate_annotations(output_dir)
+
+    # 生成 info.json
+    generate_info_json_v2(
+        output_dir,
+        train_data,
+        train_labels,
+        test_data,
+        test_labels,
+        modality_list,
+        time_len,
+        time_step,
+        {
+            'train': train_dataset.info,
+            'test': test_dataset.info,
+        }
+    )
+
+
+    print("Processing and saving completed!")
+
+def save_data_in_batches_v2(data, labels, batch_size, test_id_json_path, json_file_path, is_test=False):
+    """
+    分批次保存数据到 H5 和 JSON 文件中。
+    :param data: dict, key 为模态名，value 为对应 np.array，形状为 (n, ...)
+    :param labels: dict, key 为模态名，value 为对应的 list 标签
+    :param batch_size: 每批保存的样本数量
+    :param h5_file_path: 保存 H5 文件的路径
+    :param json_file_path: 保存 JSON 文件的路径
+    """
+    label_dict = {}
+
+    for modality, modality_data in labels.items():
+        n = len(modality_data)
+
+        # 分批写入数据
+        for i in range(0, n, batch_size):
+            start = i
+            end = min(i + batch_size, n)
+
+            # 同时保存对应的标签
+            for j in range(start, end):
+                if modality not in label_dict:
+                    label_dict[modality] = {}
+                # 将标签值转换为 Python 原生类型
+                label_dict[modality][j] = convert_to_serializable(labels[modality][j])
+
+    # 保存标签到 JSON 文件
+    with open(json_file_path, 'w') as json_file:
+        json.dump(label_dict, json_file, indent=4)
+
 def save_data_in_batches(data, labels, batch_size, h5_file_path, json_file_path):
     """
     分批次保存数据到 H5 和 JSON 文件中。
@@ -138,25 +257,26 @@ def save_data_in_batches(data, labels, batch_size, h5_file_path, json_file_path)
     """
     label_dict = {}
 
-    # 创建 HDF5 文件
-    with h5py.File(h5_file_path, 'w') as h5_file:
-        for modality, modality_data in data.items():
-            n = modality_data.shape[0]
-            data_shape = modality_data.shape[1:]
-            h5_dataset = h5_file.create_dataset(modality, shape=(n, *data_shape), dtype=modality_data.dtype)
+    if data is not None:
+        # 创建 HDF5 文件
+        with h5py.File(h5_file_path, 'w') as h5_file:
+            for modality, modality_data in data.items():
+                n = modality_data.shape[0]
+                data_shape = modality_data.shape[1:]
+                h5_dataset = h5_file.create_dataset(modality, shape=(n, *data_shape), dtype=modality_data.dtype)
 
-            # 分批写入数据
-            for i in range(0, n, batch_size):
-                start = i
-                end = min(i + batch_size, n)
-                h5_dataset[start:end] = modality_data[start:end]
+                # 分批写入数据
+                for i in range(0, n, batch_size):
+                    start = i
+                    end = min(i + batch_size, n)
+                    h5_dataset[start:end] = modality_data[start:end]
 
-                # 同时保存对应的标签
-                for j in range(start, end):
-                    if modality not in label_dict:
-                        label_dict[modality] = {}
-                    # 将标签值转换为 Python 原生类型
-                    label_dict[modality][j] = convert_to_serializable(labels[modality][j])
+                    # 同时保存对应的标签
+                    for j in range(start, end):
+                        if modality not in label_dict:
+                            label_dict[modality] = {}
+                        # 将标签值转换为 Python 原生类型
+                        label_dict[modality][j] = convert_to_serializable(labels[modality][j])
 
     # 保存标签到 JSON 文件
     with open(json_file_path, 'w') as json_file:
@@ -181,7 +301,44 @@ def convert_to_serializable(obj):
     else:
         return obj
 
-def generate_info_json(output_dir, train_data, train_labels, test_data, test_labels, modality_list, time_len, time_step):
+def generate_info_json_v2(output_dir, train_data, train_labels, test_data, test_labels, modality_list, time_len, time_step, segment_info = None):
+    """
+    生成包含数据集信息的 info.json 文件。
+    :param output_dir: 输出文件夹路径
+    :param train_data: 训练数据
+    :param train_labels: 训练标签
+    :param test_data: 测试数据
+    :param test_labels: 测试标签
+    :param modality_list: 数据模态列表
+    :param time_len: 时间切片长度
+    :param time_step: 时间切片步长
+    """
+    info = {
+        "time_len": time_len,
+        "time_step": time_step,
+        "modality_list": modality_list,
+        "train_data": {
+            "num_samples": {modality: data[0] for modality, data in train_data.items()},
+            "data_shape": {modality: data[1:] for modality, data in train_data.items()}
+        },
+        "test_data": {
+            "num_samples": {modality: data[0] for modality, data in test_data.items()},
+            "data_shape": {modality: data[1:] for modality, data in test_data.items()}
+        },
+        "labels": {
+            "train": {modality: len(train_labels[modality]) for modality in train_labels},
+            "test": {modality: len(test_labels[modality]) for modality in test_labels}
+        }
+    }
+
+    if segment_info is not None:
+        info['segment_info'] = segment_info
+
+    info_json_path = os.path.join(output_dir, 'info.json')
+    with open(info_json_path, 'w') as json_file:
+        json.dump(info, json_file, indent=4)
+
+def generate_info_json(output_dir, train_data, train_labels, test_data, test_labels, modality_list, time_len, time_step, segment_info = None):
     """
     生成包含数据集信息的 info.json 文件。
     :param output_dir: 输出文件夹路径
@@ -210,6 +367,9 @@ def generate_info_json(output_dir, train_data, train_labels, test_data, test_lab
             "test": {modality: len(test_labels[modality]) for modality in test_labels}
         }
     }
+
+    if segment_info is not None:
+        info['segment_info'] = segment_info
 
     info_json_path = os.path.join(output_dir, 'info.json')
     with open(info_json_path, 'w') as json_file:
@@ -241,15 +401,15 @@ def read_data_by_id(h5_file_path, json_file_path, sample_id):
 # Example usage
 if __name__ == "__main__":
 
-    root_path = '/data/WWADL/processed_data'
+    root_path = '/root/shared-nvme/WWADL'
     time_len = 30
     time_step = 3
     modality_list = ['imu']  # 需要处理的模态
-    output_dir = '/data/WWADL/dataset'
+    output_dir = '/root/shared-nvme/dataset'
     # name = 'wifi'
     name = f'imu_{time_len}_{time_step}'
 
-    process_and_save_dataset(
+    process_and_save_dataset_v2(
         root_path,
         time_len,
         time_step,
@@ -262,21 +422,21 @@ if __name__ == "__main__":
         target_len 是最后缩放了的结果,因为网络输入需要2048
     '''
 
-    # root_path = '/data/WWADL/processed_data'
-    # time_len = 30
-    # time_step = 3
-    # modality_list = ['wifi']  # 需要处理的模态
-    # output_dir = '/data/WWADL/dataset'
-    # # name = 'wifi'
-    # name = f'wifi_{time_len}_{time_step}'
-    #
-    # process_and_save_dataset(
-    #     root_path,
-    #     time_len,
-    #     time_step,
-    #     modality_list,
-    #     output_dir,
-    #     name,
-    #     target_len=2048
-    # )
+    root_path = '/root/shared-nvme/WWADL'
+    time_len = 30
+    time_step = 3
+    modality_list = ['wifi']  # 需要处理的模态
+    output_dir = '/root/shared-nvme/dataset'
+    # name = 'wifi'
+    name = f'wifi_{time_len}_{time_step}'
+
+    process_and_save_dataset_v2(
+        root_path,
+        time_len,
+        time_step,
+        modality_list,
+        output_dir,
+        name,
+        target_len=2048
+    )
 

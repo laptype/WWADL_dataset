@@ -8,7 +8,8 @@ class WWADLBase():
         self.data = None
         self.label = None
         self.file_name = os.path.basename(file_path)
-
+        self.window_len = 0
+        self.window_step = 0
 
     def load_data(self, file_path):
         pass
@@ -17,7 +18,7 @@ class WWADLBase():
         print(self.data.shape)
         print(self.label)
 
-    def segment(self, time_len=30, step=3, sample_rate=200, target_len=2048):
+    def segment(self, time_len=30, step=3, sample_rate=200, target_len=2048, is_test=False):
         """
         滑动窗口切分数据并生成对应的标注 label
         Args:
@@ -33,6 +34,9 @@ class WWADLBase():
         window_len = time_len * sample_rate
         window_step = step * sample_rate
 
+        self.window_len = window_len
+        self.window_step = window_step
+
         if self.data.shape[0] < window_len:
             raise ValueError(f"Data length ({self.data.shape[0]}) is less than window length ({window_len}).")
 
@@ -40,8 +44,16 @@ class WWADLBase():
         segmented_data = []
         targets = []
         # print(self.data.shape)
-        for start in range(0, self.data.shape[0] - window_len + 1, window_step):
+        test_target = []
+
+        # 创建 offsetlist 确保最后一个片段不被遗漏
+        offsetlist = list(range(0, self.data.shape[0] - window_len + 1, window_step))
+        if (self.data.shape[0] - window_len) % window_step:
+            offsetlist.append(self.data.shape[0] - window_len)
+
+        for start in offsetlist:
             end = start + window_len
+            test_target.append([start, end])
             window_data = self.data[start:end]
 
             # 插值到 target_len 长度
@@ -79,9 +91,13 @@ class WWADLBase():
                 targets.append(window_targets)
         # 转换为 np.array
         segmented_data = np.array(segmented_data)
-        return segmented_data, targets
 
-    def generate_annotations(self, subset, target_len):
+        if is_test:
+            return segmented_data, (targets, test_target)
+        else:
+            return segmented_data, targets
+
+    def generate_annotations(self, subset):
         """
         根据标签数据生成JSON格式的标注文件。
 
@@ -102,12 +118,13 @@ class WWADLBase():
             start_id = row[2]
             end_id = row[3]
             annotations.append({
-                "segment": [start_id / (), end_id],
+                "segment": [start_id, end_id],
                 "label": f"{id_to_action[action_id]}"
             })
 
         json_data = {
             "subset": subset,
-            "annotations": annotations
+            "annotations": annotations,
+            "data_shape": str(self.data.shape)
         }
         return (self.file_name, json_data)

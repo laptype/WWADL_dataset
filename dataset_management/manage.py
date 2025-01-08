@@ -2,6 +2,7 @@ import os.path
 import numpy as np
 import csv
 import json
+import h5py
 from tqdm import tqdm
 from collections import defaultdict
 from utils.h5 import load_h5, save_h5
@@ -44,6 +45,10 @@ class WWADLDataset():
 
         self.sample_rate = { 'wifi': 50, 'imu': 50, 'airpods': 25 }
 
+        self.info = {}
+
+
+
     def segment_data(self, time_len = 30, time_step = 3, target_len=2048):
         """
         对所有文件的数据进行切分，并整理为 np.array
@@ -80,6 +85,87 @@ class WWADLDataset():
             segmented_label[modality] = all_labels
 
         return segmented_data, segmented_label
+
+    def segment_data_h5(self, time_len=30, time_step=3, target_len=2048, output_file='segmented_data.h5', chunk_size=1,
+                        is_test=False):
+        """
+        对所有文件的数据进行切分，将 data 存储到 HDF5 文件中，并将 label 保留在内存中。
+        Args:
+            time_len: 每段数据的时间长度
+            time_step: 时间步长
+            target_len: 目标长度
+            output_file: 保存 HDF5 文件的路径
+            chunk_size: HDF5 数据块大小
+            is_test: 是否为测试模式，测试模式下每个样本单独保存
+        Returns:
+            segmented_label: 包含所有标签的字典
+        """
+        segmented_label = {}
+        data_shapes = {}  # 用于存储每个模态数据的最终维度
+        with h5py.File(output_file, 'w') as h5f:
+            for modality in self.modality_list:
+                print(f"Processing modality: {modality}")
+
+                all_labels = []
+                test_all_labels = {}
+                # 遍历每个文件的实例并处理数据
+                for instance in tqdm(self.data[modality], desc=f"Processing {modality} files"):
+                    data, labels = instance.segment(
+                        time_len, time_step, self.sample_rate[modality], target_len=target_len, is_test=is_test
+                    )
+                    self.info['window_len'] = instance.window_len
+                    self.info['window_step'] = instance.window_step
+
+                    if is_test:
+                        # 测试模式：每条样本单独保存
+                        for sample_index, sample_data in enumerate(data):
+                            dataset_name = f'{modality}/{instance.file_name}/{sample_index}'
+                            h5f.create_dataset(
+                                dataset_name,
+                                data=sample_data,
+                                dtype=sample_data.dtype,
+                                chunks=sample_data.shape
+                            )
+                        all_labels.extend(labels[0])  # 保存标签
+                        test_all_labels[f"{instance.file_name}"] = labels[1]
+                    else:
+                        # 非测试模式：合并保存数据
+                        if modality not in h5f:
+                            # 第一次遇到该模态，创建数据集
+                            modality_data_shape = (0,) + data.shape[1:]
+                            max_shape = (None,) + data.shape[1:]
+                            data_dset = h5f.create_dataset(
+                                f'{modality}',
+                                shape=modality_data_shape,
+                                maxshape=max_shape,
+                                dtype=data.dtype,
+                                chunks=(chunk_size,) + data.shape[1:]
+                            )
+                        else:
+                            # 获取已存在的数据集
+                            data_dset = h5f[f'{modality}']
+
+                        # 扩展数据集
+                        current_data_size = data_dset.shape[0]
+                        new_data_size = current_data_size + data.shape[0]
+                        data_dset.resize(new_data_size, axis=0)
+                        data_dset[current_data_size:new_data_size] = data
+
+                        # 保存标签
+                        all_labels.extend(labels)
+
+                # 保存每个模态的标签和数据形状
+                segmented_label[modality] = all_labels
+                if not is_test and modality in h5f:
+                    data_shapes[modality] = h5f[f'{modality}'].shape  # 保存最终数据维度
+                print(f"Finished processing modality: {modality}")
+
+        print(f"Data saved to {output_file}")
+        if is_test:
+            return data_shapes, (segmented_label, test_all_labels)
+        else:
+            return data_shapes, segmented_label
+
 
     def generate_annotations(self, save_path):
         for modality in self.modality_list:

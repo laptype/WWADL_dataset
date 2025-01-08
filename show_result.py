@@ -1,3 +1,9 @@
+"""
+IoU 和 NMS：
+    iou 计算两个片段的重叠度。
+    nms 删除低分数的冗余检测。
+"""
+
 import json
 import matplotlib.pyplot as plt
 import numpy as np
@@ -74,12 +80,33 @@ def post_process(raw_results, conf_thresh=0.3, iou_thresh=0.3, top_k=100, use_nm
     """
     Post-process raw predictions using confidence thresholding and NMS.
 
-    Parameters:
-    - raw_results: list of dict, raw detection results
-    - conf_thresh: float, minimum confidence threshold
-    - iou_thresh: float, IoU threshold for NMS
-    - top_k: int, maximum number of results to keep
-    - use_nms: bool, whether to use NMS
+    conf_thresh
+    含义：
+        conf_thresh 是 置信度阈值，用于筛选检测结果。
+        模型为每个检测结果生成一个置信度分数（score），表示该结果属于某类别的可能性。conf_thresh 定义了一个下限，低于该阈值的检测结果会被剔除。
+        如果 conf_thresh 设置得太低，可能会保留许多低置信度的预测，导致冗余或错误结果。
+        如果 conf_thresh 设置得太高，可能会丢失一些正确的预测，特别是低置信度但正确的检测。
+    设置建议：
+        通常设置为 0.5 或 0.6。如果希望只保留非常高置信度的结果，可以设置为 0.7 或更高。
+
+    iou_thresh
+    含义：
+        iou_thresh 是 交并比（IoU）阈值，用于在 非极大值抑制（NMS） 中判断两个检测结果是否冗余。
+        IoU（Intersection over Union）衡量两个检测区间的重叠程度：
+        iou_thresh 定义了一个上限，IoU 大于该阈值的结果被认为是冗余的。
+    作用：
+        删除高度重叠的检测结果，避免重复预测。
+        保留分数最高的检测结果，删除分数较低的重叠结果。
+
+    top_k
+        含义：
+
+        top_k 是一个限制值，用于控制每类检测结果的数量上限。
+        即使经过 NMS 或后处理后，仍可能有较多的检测结果，top_k 限制最终保留的结果数量。
+        作用：
+
+        避免存储过多的检测结果，减少计算和存储的开销。
+        保留分数最高的 top_k 个结果，确保输出结果的质量
 
     Returns:
     - list of dict, processed results

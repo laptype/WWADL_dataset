@@ -46,8 +46,8 @@ def main(root_path, dataset_path, modality_list = None):
 
 
 if __name__ == '__main__':
-    root_path = '/data/WWADL/processed_data'
-    main(root_path, '/data/WWADL/dataset/imu_32_3', modality_list=['imu'])
+    root_path = '/root/shared-nvme/WWADL'
+    main(root_path, '/root/shared-nvme/dataset/imu_30_3', modality_list=['imu'])
 
 
 
