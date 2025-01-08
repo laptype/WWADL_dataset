@@ -1,10 +1,13 @@
+import os
+import json
 import numpy as np
 from scipy.interpolate import interp1d
-
+from action import id_to_action
 class WWADLBase():
-    def __init__(self):
+    def __init__(self, file_path):
         self.data = None
         self.label = None
+        self.file_name = os.path.basename(file_path)
 
 
     def load_data(self, file_path):
@@ -78,3 +81,33 @@ class WWADLBase():
         segmented_data = np.array(segmented_data)
         return segmented_data, targets
 
+    def generate_annotations(self, subset, target_len):
+        """
+        根据标签数据生成JSON格式的标注文件。
+
+        参数:
+            subset (str): 数据集的子集名称，例如 'validation' 或 'training'。
+
+        返回:
+            dict: JSON格式的标注数据。
+        """
+        if self.label is None:
+            raise ValueError("Label data is not set.")
+
+        data_len = len(self.data)
+
+        annotations = []
+        for row in self.label:
+            action_id = row[1]
+            start_id = row[2]
+            end_id = row[3]
+            annotations.append({
+                "segment": [start_id / (), end_id],
+                "label": f"{id_to_action[action_id]}"
+            })
+
+        json_data = {
+            "subset": subset,
+            "annotations": annotations
+        }
+        return (self.file_name, json_data)

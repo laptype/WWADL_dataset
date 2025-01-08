@@ -1,6 +1,7 @@
 import os.path
 import numpy as np
 import csv
+import json
 from tqdm import tqdm
 from collections import defaultdict
 from utils.h5 import load_h5, save_h5
@@ -80,6 +81,23 @@ class WWADLDataset():
 
         return segmented_data, segmented_label
 
+    def generate_annotations(self, save_path):
+        for modality in self.modality_list:
+            print(f"Processing modality: {modality}")
+            all_json_data = {
+                "database": {}
+            }
+            for instance in tqdm(self.data[modality], desc=f"Processing {modality} files"):
+                key, json_data = instance.generate_annotations("test")
+                all_json_data["database"][key] = convert_to_serializable(json_data)
+
+            # 保存 JSON 文件
+            modality_save_path = f"{save_path}/{modality}_annotations.json"
+            with open(modality_save_path, 'w') as json_file:
+                json.dump(all_json_data, json_file, indent=4)
+            print(f"Saved JSON file for modality '{modality}' to {modality_save_path}")
+
+
     def check_data(self):
         # print(self.data['wifi'][0].data.shape)
         # print(self.data['imu'][0].duration)
@@ -103,6 +121,22 @@ class WWADLDataset():
         print(data.shape)
         print(label)
 
+def convert_to_serializable(obj):
+    """
+    将对象转换为 JSON 可序列化的格式。
+    """
+    if isinstance(obj, np.integer):
+        return int(obj)
+    elif isinstance(obj, np.floating):
+        return float(obj)
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif isinstance(obj, list):
+        return [convert_to_serializable(i) for i in obj]
+    elif isinstance(obj, dict):
+        return {key: convert_to_serializable(value) for key, value in obj.items()}
+    else:
+        return obj
 
 class WWADLDatasetSplit:
     def __init__(self, root_path='/data/WWADL/processed_data'):

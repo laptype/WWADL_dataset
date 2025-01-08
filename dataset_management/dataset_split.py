@@ -1,4 +1,13 @@
 import os
+import sys
+
+# 获取当前脚本所在目录
+current_dir = os.path.dirname(os.path.abspath(__file__))
+# 获取项目的根目录（根据项目结构调整）
+project_root = os.path.abspath(os.path.join(current_dir, ".."))
+# 将根目录添加到 sys.path
+sys.path.insert(0, project_root)
+print(f"Added to sys.path: {project_root}")
 import csv
 import numpy as np
 import h5py
@@ -43,7 +52,14 @@ def process_and_save_dataset(root_path, time_len, time_step, modality_list=None,
     ├── train_data.h5
     ├── train_label.json
     ├── test_data.h5
+    ├── test_label.json    output_dir/name/
+    ├── train_data.h5
+    ├── train_label.json
+    ├── test_data.h5
     ├── test_label.json
+    ├── train.csv
+    ├── test.csv
+    └── info.json
     ├── train.csv
     ├── test.csv
     └── info.json
@@ -91,6 +107,8 @@ def process_and_save_dataset(root_path, time_len, time_step, modality_list=None,
     test_h5_path = os.path.join(output_dir, 'test_data.h5')
     test_json_path = os.path.join(output_dir, 'test_label.json')
     save_data_in_batches(test_data, test_labels, batch_size, test_h5_path, test_json_path)
+
+    test_dataset.generate_annotations(output_dir)
 
 
     # 生成 info.json
@@ -223,30 +241,13 @@ def read_data_by_id(h5_file_path, json_file_path, sample_id):
 # Example usage
 if __name__ == "__main__":
 
-    # root_path = '/data/WWADL/processed_data'
-    # time_len = 32
-    # time_step = 3
-    # modality_list = ['imu']  # 需要处理的模态
-    # output_dir = '/data/WWADL/dataset'
-    # # name = 'wifi'
-    # name = f'imu_{time_len}_{time_step}'
-    #
-    # process_and_save_dataset(
-    #     root_path,
-    #     time_len,
-    #     time_step,
-    #     modality_list,
-    #     output_dir,
-    #     name
-    # )
-
     root_path = '/data/WWADL/processed_data'
     time_len = 30
     time_step = 3
-    modality_list = ['wifi']  # 需要处理的模态
+    modality_list = ['imu']  # 需要处理的模态
     output_dir = '/data/WWADL/dataset'
     # name = 'wifi'
-    name = f'wifi_{time_len}_{time_step}'
+    name = f'imu_{time_len}_{time_step}'
 
     process_and_save_dataset(
         root_path,
@@ -254,7 +255,28 @@ if __name__ == "__main__":
         time_step,
         modality_list,
         output_dir,
-        name,
-        target_len=2048
+        name
     )
+
+    '''
+        target_len 是最后缩放了的结果,因为网络输入需要2048
+    '''
+
+    # root_path = '/data/WWADL/processed_data'
+    # time_len = 30
+    # time_step = 3
+    # modality_list = ['wifi']  # 需要处理的模态
+    # output_dir = '/data/WWADL/dataset'
+    # # name = 'wifi'
+    # name = f'wifi_{time_len}_{time_step}'
+    #
+    # process_and_save_dataset(
+    #     root_path,
+    #     time_len,
+    #     time_step,
+    #     modality_list,
+    #     output_dir,
+    #     name,
+    #     target_len=2048
+    # )
 
