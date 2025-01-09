@@ -56,6 +56,9 @@ class WWADLBase():
             test_target.append([start, end])
             window_data = self.data[start:end]
 
+            # 替换 NaN 为 0
+            window_data = np.nan_to_num(window_data, nan=0.0, posinf=0.0, neginf=0.0)
+
             # 插值到 target_len 长度
             original_indices = np.linspace(0, window_len - 1, window_len)
             target_indices = np.linspace(0, window_len - 1, target_len)

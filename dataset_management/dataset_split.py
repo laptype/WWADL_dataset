@@ -401,32 +401,34 @@ def read_data_by_id(h5_file_path, json_file_path, sample_id):
 # Example usage
 if __name__ == "__main__":
 
+    # root_path = '/root/shared-nvme/WWADL'
+    # time_len = 30
+    # time_step = 3
+    # modality_list = ['imu']  # 需要处理的模态
+    # output_dir = '/root/shared-nvme/dataset'
+    # # name = 'wifi'
+    # name = f'imu_{time_len}_{time_step}'
+    #
+    # process_and_save_dataset_v2(
+    #     root_path,
+    #     time_len,
+    #     time_step,
+    #     modality_list,
+    #     output_dir,
+    #     name
+    # )
+    #
+    # '''
+    #     target_len 是最后缩放了的结果,因为网络输入需要2048
+    # '''
+
     root_path = '/root/shared-nvme/WWADL'
-    time_len = 30
-    time_step = 3
-    modality_list = ['imu']  # 需要处理的模态
-    output_dir = '/root/shared-nvme/dataset'
-    # name = 'wifi'
-    name = f'imu_{time_len}_{time_step}'
-
-    process_and_save_dataset_v2(
-        root_path,
-        time_len,
-        time_step,
-        modality_list,
-        output_dir,
-        name
-    )
-
-    '''
-        target_len 是最后缩放了的结果,因为网络输入需要2048
-    '''
-
-    root_path = '/root/shared-nvme/WWADL'
+    # root_path = '/data/WWADL/processed_data'
     time_len = 30
     time_step = 3
     modality_list = ['wifi']  # 需要处理的模态
     output_dir = '/root/shared-nvme/dataset'
+    # output_dir = '/data/WWADL/dataset'
     # name = 'wifi'
     name = f'wifi_{time_len}_{time_step}'
 
