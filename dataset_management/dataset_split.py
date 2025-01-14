@@ -127,7 +127,7 @@ def process_and_save_dataset(root_path, time_len, time_step, modality_list=None,
     print("Processing and saving completed!")
 
 
-def process_and_save_dataset_v2(root_path, time_len, time_step, modality_list=None, output_dir='./output', name='', batch_size=100, target_len = 2048):
+def process_and_save_dataset_v2(root_path, time_len, time_step, modality_list=None, output_dir='./output', name='', batch_size=100, target_len = 2048, receivers_to_keep = None):
     """
     处理数据集并分批保存 data 和 label 到 HDF5 和 JSON 文件中。
     output_dir/name/
@@ -176,7 +176,7 @@ def process_and_save_dataset_v2(root_path, time_len, time_step, modality_list=No
     print("Processing training data...")
     train_h5_path = os.path.join(output_dir, 'train_data.h5')
     train_json_path = os.path.join(output_dir, 'train_label.json')
-    train_dataset = WWADLDataset(root_path, train_file_name_list, modality_list)
+    train_dataset = WWADLDataset(root_path, train_file_name_list, modality_list, receivers_to_keep)
     train_data, train_labels = train_dataset.segment_data_h5(time_len, time_step, target_len = target_len, output_file=train_h5_path)
     save_data_in_batches_v2(None, train_labels, batch_size, train_h5_path, train_json_path)
 
@@ -184,16 +184,16 @@ def process_and_save_dataset_v2(root_path, time_len, time_step, modality_list=No
     print("Processing test data...")
     test_h5_path = os.path.join(output_dir, 'test_data.h5')
     test_json_path = os.path.join(output_dir, 'test_label.json')
-    test_id_json_path = os.path.join(output_dir, 'test_segment.json')
-    test_dataset = WWADLDataset(root_path, test_file_name_list, modality_list)
-    test_data, test_labels = test_dataset.segment_data_h5(time_len, time_step, target_len = target_len, output_file=test_h5_path, is_test=True)
-    save_data_in_batches_v2(None, test_labels[0], batch_size, test_h5_path, test_json_path, is_test=True)
+    # test_id_json_path = os.path.join(output_dir, 'test_segment.json')
+    test_dataset = WWADLDataset(root_path, test_file_name_list, modality_list, receivers_to_keep)
+    # test_data, test_labels = test_dataset.segment_data_h5(time_len, time_step, target_len = target_len, output_file=test_h5_path, is_test=True)
+    # save_data_in_batches_v2(None, test_labels[0], batch_size, test_h5_path, test_json_path, is_test=True)
 
-    with open(test_id_json_path, 'w') as json_file:
-        json.dump(convert_to_serializable(test_labels[1]), json_file, indent=4)
-        print(test_id_json_path)
+    # with open(test_id_json_path, 'w') as json_file:
+    #     json.dump(convert_to_serializable(test_labels[1]), json_file, indent=4)
+    #     print(test_id_json_path)
 
-    test_labels = test_labels[0]
+    # test_labels = test_labels[0]
 
     test_dataset.generate_annotations(output_dir)
 
@@ -202,14 +202,14 @@ def process_and_save_dataset_v2(root_path, time_len, time_step, modality_list=No
         output_dir,
         train_data,
         train_labels,
-        test_data,
-        test_labels,
         modality_list,
         time_len,
         time_step,
         {
+            "target_len": target_len,
             'train': train_dataset.info,
             'test': test_dataset.info,
+            "receivers_to_keep": receivers_to_keep
         }
     )
 
@@ -301,7 +301,7 @@ def convert_to_serializable(obj):
     else:
         return obj
 
-def generate_info_json_v2(output_dir, train_data, train_labels, test_data, test_labels, modality_list, time_len, time_step, segment_info = None):
+def generate_info_json_v2(output_dir, train_data, train_labels, modality_list, time_len, time_step, segment_info = None):
     """
     生成包含数据集信息的 info.json 文件。
     :param output_dir: 输出文件夹路径
@@ -321,13 +321,8 @@ def generate_info_json_v2(output_dir, train_data, train_labels, test_data, test_
             "num_samples": {modality: data[0] for modality, data in train_data.items()},
             "data_shape": {modality: data[1:] for modality, data in train_data.items()}
         },
-        "test_data": {
-            "num_samples": {modality: data[0] for modality, data in test_data.items()},
-            "data_shape": {modality: data[1:] for modality, data in test_data.items()}
-        },
         "labels": {
             "train": {modality: len(train_labels[modality]) for modality in train_labels},
-            "test": {modality: len(test_labels[modality]) for modality in test_labels}
         }
     }
 
@@ -398,6 +393,14 @@ def read_data_by_id(h5_file_path, json_file_path, sample_id):
     return data, label
 
 
+device2name = {
+    'gl': 'glasses',
+    'lh': 'left hand',
+    'rh': 'right hand',
+    'lp': 'left pocket',
+    'rp': 'right pocket'
+}
+
 # Example usage
 if __name__ == "__main__":
 
@@ -406,17 +409,44 @@ if __name__ == "__main__":
     # time_step = 3
     # modality_list = ['imu']  # 需要处理的模态
     # output_dir = '/root/shared-nvme/dataset'
-    # # name = 'wifi'
-    # name = f'imu_{time_len}_{time_step}'
     #
+    # name = f'imu_{time_len}_{time_step}_new'
     # process_and_save_dataset_v2(
     #     root_path,
     #     time_len,
     #     time_step,
     #     modality_list,
     #     output_dir,
-    #     name
+    #     name,
+    #     target_len=2048,
+    #     receivers_to_keep=None
     # )
+
+    root_path = '/root/shared-nvme/WWADL'
+    time_len = 30
+    time_step = 3
+    modality_list = ['imu']  # 需要处理的模态
+    output_dir = '/root/shared-nvme/dataset'
+    # name = 'wifi'
+
+    for device in ['gl', 'lh', 'rh', 'lp', 'rp']:
+
+        name = f'imu_{time_len}_{time_step}_{device}'
+        receivers_to_keep = {
+            'imu': [device2name[device]]
+        }
+        process_and_save_dataset_v2(
+            root_path,
+            time_len,
+            time_step,
+            modality_list,
+            output_dir,
+            name,
+            target_len=2048,
+            receivers_to_keep=receivers_to_keep
+        )
+
+
     #
     # '''
     #     target_len 是最后缩放了的结果,因为网络输入需要2048
@@ -428,17 +458,23 @@ if __name__ == "__main__":
     time_step = 3
     modality_list = ['wifi']  # 需要处理的模态
     output_dir = '/root/shared-nvme/dataset'
-    # output_dir = '/data/WWADL/dataset'
-    # name = 'wifi'
-    name = f'wifi_{time_len}_{time_step}'
+    name = 'wifi'
 
-    process_and_save_dataset_v2(
-        root_path,
-        time_len,
-        time_step,
-        modality_list,
-        output_dir,
-        name,
-        target_len=2048
-    )
+
+    for i in range(3):
+        name = f'wifi_{time_len}_{time_step}_{i}'
+        receivers_to_keep = {
+            'wifi': [i]
+        }
+
+        process_and_save_dataset_v2(
+            root_path,
+            time_len,
+            time_step,
+            modality_list,
+            output_dir,
+            name,
+            target_len=2048,
+            receivers_to_keep = receivers_to_keep
+        )
 

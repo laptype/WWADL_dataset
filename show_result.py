@@ -170,23 +170,20 @@ def visualize_results_combined(video_name, groundtruth, predictions, title="Acti
     plt.show()
 
 # 示例数据
-groundtruth = [
-    {"segment": [0, 250], "label": "Walking to Bed"},
-    {"segment": [250, 650], "label": "Sitting Down"},
-    {"segment": [650, 1350], "label": "Reading"},
-    {"segment": [1350, 1750], "label": "Pouring Water"},
-    {"segment": [1750, 2350], "label": "Taking Medicine"},
-    {"segment": [2350, 2750], "label": "Lying Down"},
-    {"segment": [2750, 3400], "label": "Using Phone"},
-    {"segment": [3400, 3699], "label": "Getting Out of Bed"}
-]
+groundtruth_path = '/root/shared-nvme/dataset/imu_30_3/imu_annotations.json'
 
-json_file_path = "/home/lanbo/WWADL/WWADL_WiFiTAD/output/checkpoint40.json"  # Replace with the actual file path
+
+json_file_path = "/root/shared-nvme/code_result/result/25_01-10/test2/WWADLDatasetSingle_imu_30_3_34_2048_30_0/checkpoint_wifiTAD_34_2048_30_0-epoch-20.pt.json"  # Replace with the actual file path
 
 with open(json_file_path, "r") as f:
     predictions = json.load(f)
 
-raw_predictions = predictions['results']['0_1_14.h5']
+with open(groundtruth_path, "r") as f:
+    groundtruth_json = json.load(f)
+
+raw_predictions = predictions['results']['0_1_5.h5']
+groundtruth = groundtruth_json['database']['0_1_5.h5']['annotations']
+
 
 # 后处理预测结果
 processed_predictions = post_process(raw_predictions, conf_thresh=0.5, iou_thresh=0.3, top_k=10)
@@ -194,4 +191,4 @@ processed_predictions = post_process(raw_predictions, conf_thresh=0.5, iou_thres
 print(processed_predictions)
 
 # 可视化
-visualize_results_combined("0_1_14.h5", groundtruth, processed_predictions)
+visualize_results_combined("0_1_5.h5", groundtruth, processed_predictions)

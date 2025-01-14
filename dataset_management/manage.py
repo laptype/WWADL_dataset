@@ -12,8 +12,14 @@ from dataset_management.airpods import WWADL_airpods
 
 class WWADLDataset():
 
-    def __init__(self, root_path, file_name_list, modality_list=None):
+    def __init__(self, root_path, file_name_list, modality_list=None, receivers_to_keep=None):
 
+        if receivers_to_keep is None:
+            receivers_to_keep = {
+                "imu": None,
+                "wifi": None,
+                "airpods": None
+            }
         if modality_list is None:
             modality_list = ['wifi', 'imu', 'airpods']
         self.data_path = {
@@ -28,12 +34,12 @@ class WWADLDataset():
         # Only include modalities specified in the `modality` list
         if 'wifi' in modality_list:
             print("Loading WiFi data...")
-            self.data['wifi'] = [WWADL_wifi(os.path.join(self.data_path['wifi'], f)) for f in
+            self.data['wifi'] = [WWADL_wifi(os.path.join(self.data_path['wifi'], f), receivers_to_keep['wifi']) for f in
                                  tqdm(file_name_list, desc="WiFi files")]
 
         if 'imu' in modality_list:
             print("Loading IMU data...")
-            self.data['imu'] = [WWADL_imu(os.path.join(self.data_path['imu'], f)) for f in
+            self.data['imu'] = [WWADL_imu(os.path.join(self.data_path['imu'], f), receivers_to_keep['imu']) for f in
                                 tqdm(file_name_list, desc="IMU files")]
 
         if 'airpods' in modality_list:
@@ -310,25 +316,29 @@ class WWADLDatasetSplit:
 
 
 if __name__ == '__main__':
-    # file_name_list = [
-    #     '2_1_1.h5',
-    #     '2_1_10.h5',
-    #     '2_1_11.h5'
-    # ]
-    # dataset = WWADLDataset('/data/WWADL/processed_data', file_name_list, ['imu'])
-    # # dataset.check_data()
-    #
+    file_name_list = [
+        '2_1_1.h5',
+        '2_1_10.h5',
+        '2_1_11.h5'
+    ]
+    dataset = WWADLDataset('/root/shared-nvme/WWADL/', file_name_list, ['imu'])
+    # dataset.check_data()
+    data = dataset.data['imu']
     # data, label = dataset.segment_data()
-    #
+
+    for k in data:
+        print(k.data.shape)
+
     # for k, v in data.items():
     #     print(k, v.shape)
     #
+
     # # print(data['wifi']['label'])
     # from utils.h5 import save_h5
     #
     # save_h5('test.h5', data)
 
-
-    data = load_h5('test.h5')
-
-    print(data)
+    #
+    # data = load_h5('test.h5')
+    #
+    # print(data)
