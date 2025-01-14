@@ -1,8 +1,55 @@
 import os
 import json
 import numpy as np
+import pandas as pd
 from scipy.interpolate import interp1d
 from action import id_to_action
+
+def handle_nan_and_interpolate(data, window_len, target_len):
+    """
+    插值并在插值前处理 NaN 值的通用函数。
+    Args:
+        data (np.ndarray): 输入数据，维度为 (window_len, ...)
+        window_len (int): 原始时序长度。
+        target_len (int): 目标时序长度。
+    Returns:
+        np.ndarray: 插值后的数据，时间维度变为 target_len，其他维度保持不变。
+    """
+    original_shape = data.shape  # 获取原始形状
+    flattened_data = data.reshape(window_len, -1)  # 展平除时间维度以外的所有维度
+
+    # 定义插值函数
+    def interpolate_channel(channel_data):
+        original_indices = np.linspace(0, window_len - 1, window_len)
+        target_indices = np.linspace(0, window_len - 1, target_len)
+
+        # 检查 NaN 并处理
+        nan_mask = np.isnan(channel_data)
+        if np.any(nan_mask):  # 如果存在 NaN 值
+            valid_indices = np.where(~nan_mask)[0]
+            valid_values = channel_data[~nan_mask]
+
+            if len(valid_indices) > 1:  # 至少两个有效值
+                interp_func = interp1d(valid_indices, valid_values, kind='linear', bounds_error=False, fill_value="extrapolate")
+                channel_data = interp_func(np.arange(window_len))
+            else:
+                # 如果有效值不足，填充为 0
+                channel_data = np.zeros_like(channel_data)
+
+        # 插值到目标长度
+        interp_func = interp1d(original_indices, channel_data, kind='linear', bounds_error=False, fill_value="extrapolate")
+        return interp_func(target_indices)
+
+    # 对所有通道进行插值处理
+    interpolated_flattened_data = np.array([
+        interpolate_channel(flattened_data[:, i])
+        for i in range(flattened_data.shape[1])
+    ]).T  # 转置回时间维度在前
+
+    # 恢复原始形状，时间维度替换为 target_len
+    reshaped_interpolated_data = interpolated_flattened_data.reshape(target_len, *original_shape[1:])
+    return reshaped_interpolated_data
+
 class WWADLBase():
     def __init__(self, file_path):
         self.data = None
@@ -56,13 +103,17 @@ class WWADLBase():
             test_target.append([start, end])
             window_data = self.data[start:end]
 
-            # 替换 NaN 为 0
-            window_data = np.nan_to_num(window_data, nan=0.0, posinf=0.0, neginf=0.0)
+            # 调用封装的函数进行处理
+            interpolated_data = handle_nan_and_interpolate(window_data, window_len, target_len)
+            assert not np.any(np.isnan(interpolated_data)), "Data contains NaN values!"
 
-            # 插值到 target_len 长度
-            original_indices = np.linspace(0, window_len - 1, window_len)
-            target_indices = np.linspace(0, window_len - 1, target_len)
-            interpolated_data = interp1d(original_indices, window_data, axis=0, kind='linear')(target_indices)
+            # # 替换 NaN 为 0
+            # window_data = np.nan_to_num(window_data, nan=0.0, posinf=0.0, neginf=0.0)
+            #
+            # # 插值到 target_len 长度
+            # original_indices = np.linspace(0, window_len - 1, window_len)
+            # target_indices = np.linspace(0, window_len - 1, target_len)
+            # interpolated_data = interp1d(original_indices, window_data, axis=0, kind='linear')(target_indices)
 
             segmented_data.append(interpolated_data)
 
@@ -100,7 +151,11 @@ class WWADLBase():
         else:
             return segmented_data, targets
 
-    def generate_annotations(self, subset):
+    def mapping_label(self, old_to_new_mapping):
+        for i in range(len(self.label)):
+            self.label[i][1] = old_to_new_mapping[self.label[i][1]]
+
+    def generate_annotations(self, subset, id2action: dict = None):
         """
         根据标签数据生成JSON格式的标注文件。
 
@@ -110,6 +165,9 @@ class WWADLBase():
         返回:
             dict: JSON格式的标注数据。
         """
+        if id2action is None:
+            id2action = id_to_action
+
         if self.label is None:
             raise ValueError("Label data is not set.")
 
@@ -122,7 +180,7 @@ class WWADLBase():
             end_id = row[3]
             annotations.append({
                 "segment": [start_id, end_id],
-                "label": f"{id_to_action[action_id]}"
+                "label": f"{id2action[action_id]}"
             })
 
         json_data = {

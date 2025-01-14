@@ -13,7 +13,7 @@ class WWADL_wifi(WWADLBase):
         - 第四个维度 (30): 特征维度（如频率子载波或信号特征）
     """
 
-    def __init__(self, file_path, receivers_to_keep=None):
+    def __init__(self, file_path, receivers_to_keep=None, new_mapping=None):
         """
         初始化 WiFi 数据处理类，并保留指定的接收设备
 
@@ -27,6 +27,9 @@ class WWADL_wifi(WWADLBase):
         # 如果提供了需要保留的接收设备列表，则过滤设备维度
         if receivers_to_keep:
             self.retain_receivers(receivers_to_keep)
+
+        if new_mapping:
+            self.mapping_label(new_mapping)
 
 
     def load_data(self, file_path):

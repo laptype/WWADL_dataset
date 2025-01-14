@@ -12,7 +12,7 @@ from dataset_management.airpods import WWADL_airpods
 
 class WWADLDataset():
 
-    def __init__(self, root_path, file_name_list, modality_list=None, receivers_to_keep=None):
+    def __init__(self, root_path, file_name_list, modality_list=None, receivers_to_keep=None, new_mapping=None):
 
         if receivers_to_keep is None:
             receivers_to_keep = {
@@ -34,12 +34,16 @@ class WWADLDataset():
         # Only include modalities specified in the `modality` list
         if 'wifi' in modality_list:
             print("Loading WiFi data...")
-            self.data['wifi'] = [WWADL_wifi(os.path.join(self.data_path['wifi'], f), receivers_to_keep['wifi']) for f in
+            self.data['wifi'] = [WWADL_wifi(os.path.join(self.data_path['wifi'], f),
+                                            receivers_to_keep['wifi'],
+                                            new_mapping=new_mapping) for f in
                                  tqdm(file_name_list, desc="WiFi files")]
 
         if 'imu' in modality_list:
             print("Loading IMU data...")
-            self.data['imu'] = [WWADL_imu(os.path.join(self.data_path['imu'], f), receivers_to_keep['imu']) for f in
+            self.data['imu'] = [WWADL_imu(os.path.join(self.data_path['imu'], f),
+                                          receivers_to_keep['imu'],
+                                          new_mapping=new_mapping) for f in
                                 tqdm(file_name_list, desc="IMU files")]
 
         if 'airpods' in modality_list:
@@ -52,8 +56,6 @@ class WWADLDataset():
         self.sample_rate = { 'wifi': 50, 'imu': 50, 'airpods': 25 }
 
         self.info = {}
-
-
 
     def segment_data(self, time_len = 30, time_step = 3, target_len=2048):
         """
@@ -173,14 +175,14 @@ class WWADLDataset():
             return data_shapes, segmented_label
 
 
-    def generate_annotations(self, save_path):
+    def generate_annotations(self, save_path, id2action = None):
         for modality in self.modality_list:
             print(f"Processing modality: {modality}")
             all_json_data = {
                 "database": {}
             }
             for instance in tqdm(self.data[modality], desc=f"Processing {modality} files"):
-                key, json_data = instance.generate_annotations("test")
+                key, json_data = instance.generate_annotations("test", id2action=id2action)
                 all_json_data["database"][key] = convert_to_serializable(json_data)
 
             # 保存 JSON 文件
@@ -321,13 +323,17 @@ if __name__ == '__main__':
         '2_1_10.h5',
         '2_1_11.h5'
     ]
-    dataset = WWADLDataset('/root/shared-nvme/WWADL/', file_name_list, ['imu'])
+    from dataset_management.action import old_to_new_mapping, new_id_to_action
+    dataset = WWADLDataset('/root/shared-nvme/WWADL/', file_name_list, ['imu'], new_mapping=old_to_new_mapping)
     # dataset.check_data()
     data = dataset.data['imu']
     # data, label = dataset.segment_data()
 
-    for k in data:
-        print(k.data.shape)
+
+    print(new_id_to_action)
+
+    # for k in data:
+    #     print(k.data.shape)
 
     # for k, v in data.items():
     #     print(k, v.shape)
