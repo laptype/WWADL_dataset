@@ -117,6 +117,18 @@ def process_and_save_dataset_v2(root_path, time_len, time_step, modality_list=No
 
     test_dataset.generate_annotations(output_dir, id2action=id2action)
 
+    info = {
+        "target_len": target_len,
+        'train': train_dataset.info,
+        'test': train_dataset.info,
+    }
+    if receivers_to_keep:
+        info['receivers_to_keep'] = receivers_to_keep
+    if id2action:
+        info['id2action'] = id2action
+    if new_mapping:
+        info['new_mapping'] = new_mapping
+
     # 生成 info.json
     generate_info_json_v2(
         output_dir,
@@ -125,13 +137,7 @@ def process_and_save_dataset_v2(root_path, time_len, time_step, modality_list=No
         modality_list,
         time_len,
         time_step,
-        {
-            "target_len": target_len,
-            'train': train_dataset.info,
-            'test': train_dataset.info,
-            "receivers_to_keep": receivers_to_keep if receivers_to_keep is not None else 'None',
-            "id2action": id2action if id2action is not None else 'None',
-        }
+        info
     )
 
 
