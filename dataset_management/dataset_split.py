@@ -263,11 +263,13 @@ if __name__ == "__main__":
 
     from dataset_management.action import old_to_new_mapping, new_id_to_action
 
-    root_path = '/root/shared-nvme/WWADL'
+    # root_path = '/root/shared-nvme/WWADL'
+    root_path = '/data/WWADL/processed_data'
     time_len = 30
     time_step = 3
     modality_list = ['imu', 'wifi']  # 需要处理的模态
-    output_dir = '/root/shared-nvme/dataset'
+    # output_dir = '/root/shared-nvme/dataset'
+    output_dir = '/data/WWADL/dataset'
 
 
     name = f'all_{time_len}_{time_step}'

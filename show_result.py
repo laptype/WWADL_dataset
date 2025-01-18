@@ -3,8 +3,10 @@ IoU 和 NMS：
     iou 计算两个片段的重叠度。
     nms 删除低分数的冗余检测。
 """
-
+import os
 import json
+import matplotlib
+# matplotlib.use('Agg')  # 使用非交互式后端，适用于没有显示器的环境
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -124,7 +126,7 @@ def post_process(raw_results, conf_thresh=0.3, iou_thresh=0.3, top_k=100, use_nm
     return filtered_results
 
 
-def visualize_results_combined(video_name, groundtruth, predictions, title="Action Detection Results"):
+def visualize_results_combined(video_name, groundtruth, predictions, title="Action Detection Results", save_path=None):
     """
     Visualize Groundtruth and Predictions for a video on the same plot.
 
@@ -167,13 +169,20 @@ def visualize_results_combined(video_name, groundtruth, predictions, title="Acti
 
     # Show plot
     plt.tight_layout()
-    plt.show()
+    if save_path:
+        plt.savefig(os.path.join(save_path, 'result.jpg'))  # Save the plot as a file
+        print(f"Plot saved to {save_path}")
+    else:
+        plt.show()  # Show the plot if no save_path is provided
+
+
 
 # 示例数据
-groundtruth_path = '/root/shared-nvme/dataset/imu_30_3/imu_annotations.json'
+groundtruth_path = '/root/shared-nvme/dataset/all_30_3/imutrain_annotations.json'
+# json_file_path = "/root/shared-nvme/code_result/result/25_01-10/test2/WWADLDatasetSingle_imu_30_3_34_2048_30_0/checkpoint_wifiTAD_34_2048_30_0-epoch-20.pt.json"  # Replace with the actual file path
 
-
-json_file_path = "/root/shared-nvme/code_result/result/25_01-10/test2/WWADLDatasetSingle_imu_30_3_34_2048_30_0/checkpoint_wifiTAD_34_2048_30_0-epoch-20.pt.json"  # Replace with the actual file path
+json_file_path = "/root/shared-nvme/code_result/result/25_01-16/muti_mamba/WWADLDatasetMuti_all_30_3_mamba_layer_8/checkpoint_mamba_mamba_layer_8-epoch-54.pt.json"
+# json_file_path = "/root/shared-nvme/code_result/result/25_01-16/single_mamba/WWADLDatasetSingle_all_30_3_mamba_layer_8/checkpoint_mamba_mamba_layer_8-epoch-54.pt.json"
 
 with open(json_file_path, "r") as f:
     predictions = json.load(f)
@@ -181,14 +190,15 @@ with open(json_file_path, "r") as f:
 with open(groundtruth_path, "r") as f:
     groundtruth_json = json.load(f)
 
-raw_predictions = predictions['results']['0_1_5.h5']
-groundtruth = groundtruth_json['database']['0_1_5.h5']['annotations']
+raw_predictions = predictions['results']['0_1_2.h5']
+groundtruth = groundtruth_json['database']['0_1_2.h5']['annotations']
 
 
 # 后处理预测结果
-processed_predictions = post_process(raw_predictions, conf_thresh=0.5, iou_thresh=0.3, top_k=10)
+processed_predictions = post_process(raw_predictions, conf_thresh=0.7, iou_thresh=0.5, top_k=10)
 
 print(processed_predictions)
-
+save_path = os.path.dirname(json_file_path)
+print(save_path)
 # 可视化
-visualize_results_combined("0_1_5.h5", groundtruth, processed_predictions)
+visualize_results_combined("show", groundtruth, processed_predictions, save_path=None)

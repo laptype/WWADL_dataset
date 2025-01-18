@@ -25,7 +25,7 @@ from manage import WWADLDatasetSplit, WWADLDataset
 
 def main(root_path, dataset_path, modality_list = None):
     # 读取 test.csv
-    test_csv_path = os.path.join(dataset_path, 'test.csv')
+    test_csv_path = os.path.join(dataset_path, 'train.csv')
     if not os.path.exists(test_csv_path):
         raise FileNotFoundError(f"{test_csv_path} does not exist.")
 
@@ -40,14 +40,14 @@ def main(root_path, dataset_path, modality_list = None):
 
     dataset = WWADLDataset(root_path, file_name_list, modality_list)
     # 执行 generate_annotations
-    dataset.generate_annotations(dataset_path)
+    dataset.generate_annotations(dataset_path, label='train')
 
     print(f"Annotations have been saved to {dataset_path}.")
 
 
 if __name__ == '__main__':
     root_path = '/root/shared-nvme/WWADL'
-    main(root_path, '/root/shared-nvme/dataset/imu_30_3', modality_list=['imu'])
+    main(root_path, '/root/shared-nvme/dataset/all_30_3', modality_list=['imu'])
 
 
 

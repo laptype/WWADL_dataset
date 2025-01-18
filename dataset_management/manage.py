@@ -175,7 +175,7 @@ class WWADLDataset():
             return data_shapes, segmented_label
 
 
-    def generate_annotations(self, save_path, id2action = None):
+    def generate_annotations(self, save_path, id2action = None, label=''):
         for modality in self.modality_list:
             print(f"Processing modality: {modality}")
             all_json_data = {
@@ -186,7 +186,7 @@ class WWADLDataset():
                 all_json_data["database"][key] = convert_to_serializable(json_data)
 
             # 保存 JSON 文件
-            modality_save_path = f"{save_path}/{modality}_annotations.json"
+            modality_save_path = f"{save_path}/{modality}{label}_annotations.json"
             with open(modality_save_path, 'w') as json_file:
                 json.dump(all_json_data, json_file, indent=4)
             print(f"Saved JSON file for modality '{modality}' to {modality_save_path}")
