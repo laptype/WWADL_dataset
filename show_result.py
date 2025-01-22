@@ -178,10 +178,10 @@ def visualize_results_combined(video_name, groundtruth, predictions, title="Acti
 
 
 # 示例数据
-groundtruth_path = '/root/shared-nvme/dataset/all_30_3/imutrain_annotations.json'
+groundtruth_path = '/root/shared-nvme/dataset/all_30_3/imu_annotations.json'
 # json_file_path = "/root/shared-nvme/code_result/result/25_01-10/test2/WWADLDatasetSingle_imu_30_3_34_2048_30_0/checkpoint_wifiTAD_34_2048_30_0-epoch-20.pt.json"  # Replace with the actual file path
 
-json_file_path = "/root/shared-nvme/code_result/result/25_01-16/muti_mamba/WWADLDatasetMuti_all_30_3_mamba_layer_8/checkpoint_mamba_mamba_layer_8-epoch-54.pt.json"
+json_file_path = "/root/shared-nvme/code_result/result/25_01-20/muti_m_t/WWADLDatasetMuti_all_30_3_mamba_layer_8/checkpoint_mamba_mamba_layer_8-epoch-79.pt.json"
 # json_file_path = "/root/shared-nvme/code_result/result/25_01-16/single_mamba/WWADLDatasetSingle_all_30_3_mamba_layer_8/checkpoint_mamba_mamba_layer_8-epoch-54.pt.json"
 
 with open(json_file_path, "r") as f:
@@ -190,15 +190,15 @@ with open(json_file_path, "r") as f:
 with open(groundtruth_path, "r") as f:
     groundtruth_json = json.load(f)
 
-raw_predictions = predictions['results']['0_1_2.h5']
-groundtruth = groundtruth_json['database']['0_1_2.h5']['annotations']
+raw_predictions = predictions['results']['0_2_10.h5']
+groundtruth = groundtruth_json['database']['0_2_10.h5']['annotations']
 
 
-# 后处理预测结果
-processed_predictions = post_process(raw_predictions, conf_thresh=0.7, iou_thresh=0.5, top_k=10)
+# 后处理预测结果 较小的值会更严格地去除冗余框，较大的值可能会保留更多框。
+processed_predictions = post_process(raw_predictions, conf_thresh=0.5, iou_thresh=0.1, top_k=12)
 
 print(processed_predictions)
 save_path = os.path.dirname(json_file_path)
 print(save_path)
 # 可视化
-visualize_results_combined("show", groundtruth, processed_predictions, save_path=None)
+visualize_results_combined("show", groundtruth, processed_predictions, save_path=save_path)
