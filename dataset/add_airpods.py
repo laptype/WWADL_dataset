@@ -51,6 +51,8 @@ def get_airpods_spilt_dataset(root_path, dataset_path):
     train_dataset = WWADLDataset(root_path, train_datalist, modality_list, receivers_to_keep=None, new_mapping=new_mapping)
     train_data, train_labels = train_dataset.segment_data_h5(time_len, time_step, target_len = target_len, output_file=train_h5_path)
 
+    
+
 if __name__ == '__main__':
     dataset_path = '/root/shared-nvme/dataset/all_30_3'
     root_path = '/data/WWADL/processed_data'

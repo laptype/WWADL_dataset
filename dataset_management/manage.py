@@ -48,7 +48,8 @@ class WWADLDataset():
 
         if 'airpods' in modality_list:
             print("Loading AirPods data...")
-            self.data['airpods'] = [WWADL_airpods(os.path.join(self.data_path['airpods'], f)) for f in
+            self.data['airpods'] = [WWADL_airpods(os.path.join(self.data_path['airpods'], f),
+                                                  new_mapping=new_mapping) for f in
                                     tqdm(file_name_list, desc="AirPods files")]
 
         self.modality_list = modality_list
@@ -115,12 +116,14 @@ class WWADLDataset():
                 print(f"Processing modality: {modality}")
 
                 all_labels = []
+                all_file_names = []
                 test_all_labels = {}
                 # 遍历每个文件的实例并处理数据
                 for instance in tqdm(self.data[modality], desc=f"Processing {modality} files"):
                     data, labels = instance.segment(
                         time_len, time_step, self.sample_rate[modality], target_len=target_len, is_test=is_test
                     )
+                    file_name = instance.file_name
                     self.info['window_len'] = instance.window_len
                     self.info['window_step'] = instance.window_step
 
@@ -161,9 +164,12 @@ class WWADLDataset():
 
                         # 保存标签
                         all_labels.extend(labels)
+    
+                    all_file_names.extend([f'{file_name}_{id}' for id in range(len(labels))])
 
                 # 保存每个模态的标签和数据形状
                 segmented_label[modality] = all_labels
+                segmented_label[f'{modality}_file_names'] = all_file_names
                 if not is_test and modality in h5f:
                     data_shapes[modality] = h5f[f'{modality}'].shape  # 保存最终数据维度
                 print(f"Finished processing modality: {modality}")
