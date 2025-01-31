@@ -124,8 +124,10 @@ class WWADLDataset():
                         time_len, time_step, self.sample_rate[modality], target_len=target_len, is_test=is_test
                     )
                     file_name = instance.file_name
-                    self.info['window_len'] = instance.window_len
-                    self.info['window_step'] = instance.window_step
+                    self.info[modality] = {
+                        'window_len': instance.window_len,
+                        'window_step': instance.window_step
+                    }
 
                     if is_test:
                         # 测试模式：每条样本单独保存
@@ -221,6 +223,42 @@ class WWADLDataset():
         print(data.shape)
         print(label)
 
+
+    def duration_summary(self):
+        modality = self.modality_list[0]
+        duration = {
+            '1': 0,
+            '2': 0,
+            '3': 0
+        }
+
+        for instance in tqdm(self.data[modality], desc=f"Processing {modality} files"):
+            file_name = instance.file_name
+            data_duration = len(instance) / self.sample_rate[modality]  # 单位为秒
+            volunteer_id, scene_id, action_group_id = file_name.split('_')
+            
+            duration[scene_id] += data_duration
+
+        # 返回每个场景的精确时长（单位：秒）
+        return duration
+
+    def count_summary(self):
+        modality = self.modality_list[0]
+        duration = {
+            '1': 0,
+            '2': 0,
+            '3': 0
+        }
+
+        for instance in tqdm(self.data[modality], desc=f"Processing {modality} files"):
+            file_name = instance.file_name
+            volunteer_id, scene_id, action_group_id = file_name.split('_')
+            duration[scene_id] += 1
+
+        # 返回每个场景的精确时长（单位：秒）
+        return duration
+
+
 def convert_to_serializable(obj):
     """
     将对象转换为 JSON 可序列化的格式。
@@ -273,6 +311,31 @@ class WWADLDatasetSplit:
                         })
 
         return file_records
+
+    def split_data_by_volunteer(self, file_records, target_volunteer_id):
+        # Organize files by volunteer_id and scene_id
+        data_dict = defaultdict(lambda: defaultdict(list))
+        for record in file_records:
+            volunteer_id = record['volunteer_id']
+            scene_id = record['scene_id']
+            data_dict[volunteer_id][scene_id].append(record)
+
+        # Split into train and test lists
+        train_list = []
+        test_list = []
+
+        for volunteer_id, scenes in data_dict.items():
+            # If volunteer_id is 1, use it for the test set
+            if volunteer_id == target_volunteer_id:
+                for scene_id, records in scenes.items():
+                    np.random.shuffle(records)  # Shuffle the records for randomness
+                    test_list.extend(records)
+            else:
+                for scene_id, records in scenes.items():
+                    np.random.shuffle(records)  # Shuffle the records for randomness
+                    train_list.extend(records)
+
+        return train_list, test_list
 
     def split_data_by_volunteer_and_scene(self, file_records, train_ratio=0.8):
         # Organize files by volunteer_id and scene_id

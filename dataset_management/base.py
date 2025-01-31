@@ -3,7 +3,7 @@ import json
 import numpy as np
 import pandas as pd
 from scipy.interpolate import interp1d
-from action import id_to_action
+from dataset_management.action import id_to_action
 
 def handle_nan_and_interpolate(data, window_len, target_len):
     """
@@ -64,6 +64,9 @@ class WWADLBase():
     def show_info(self):
         print(self.data.shape)
         print(self.label)
+
+    def __len__(self):
+        return self.data.shape[0]
 
     def segment(self, time_len=30, step=3, sample_rate=200, target_len=2048, is_test=False):
         """

@@ -190,7 +190,12 @@ with open(json_file_path, "r") as f:
 with open(groundtruth_path, "r") as f:
     groundtruth_json = json.load(f)
 
-raw_predictions = predictions['results']['0_2_10.h5']
+raw_predictions1 = predictions['results']['0_2_10.h5']
+raw_predictions2
+raw_predictions3
+raw_predictions4
+raw_predictions5
+raw_predictions6
 groundtruth = groundtruth_json['database']['0_2_10.h5']['annotations']
 
 
